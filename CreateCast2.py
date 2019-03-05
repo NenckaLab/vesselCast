@@ -27,12 +27,17 @@ import commands
 import linecache
 #Numerical python stuff
 import numpy
+
 #NIFTI library stuff
-import nifti
-import nifti.clib as ncl
+import nibabel
+##ASN NIFTI module died a long time ago. Long live NIBABEL
+##import nifti
+##import nifti.clib as ncl
+
 #GUI stuff
 import Tkinter as tk
 import Pmw
+
 #MATPLOTLIB stuff
 import matplotlib as mpl
 mpl.use('TkAgg')
@@ -40,6 +45,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
+
 #pyDICOM stuff
 import dicom
 
