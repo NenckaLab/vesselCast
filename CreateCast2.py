@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 #In addition to the listed imports in this software, this requires that AFNI be installed and working
 #on the host computer. The 2dseq, reco, and method files from a Bruker imager are required for header
@@ -21,8 +21,6 @@
 #Enjoy!
 #
 
-#System commands
-import commands
 #Line reading
 import linecache
 #Numerical python stuff
@@ -35,7 +33,7 @@ import nibabel
 ##import nifti.clib as ncl
 
 #GUI stuff
-import Tkinter as tk
+import tkinter as tk
 import Pmw
 
 #MATPLOTLIB stuff
@@ -50,79 +48,17 @@ from matplotlib.figure import Figure
 import dicom
 
 
-#############################
-#Populate Header Information#
-#############################
-
-#Get the info from the reco file
-recoFile = open('reco','r')
-
-#Step through the lines, checking for the FOV
-myContinue = 1
-while myContinue:
-    tempLine = recoFile.readline()
-    if tempLine == '':
-        myContinue = 0;
-    if "RECO_size=" in tempLine:
-        recoSizeArr = recoFile.readline().split()
-    if "RECO_fov=" in tempLine:
-        recoFOVArr = recoFile.readline().split()
-        for index in range(len(recoFOVArr)):
-            recoFOVArr[index] = float(recoFOVArr[index])*10.0
-
-recoFile.close()
-
-#Get info from ../../method
-methodFile = open('../../method','r')
-
-#Step through the lines, checking for the number of repetitions
-myContinue = 1
-while myContinue:
-    tempLine = methodFile.readline()
-    if tempLine == '':
-        myContinue = 0
-    if "$PVM_NRepetitions=" in tempLine:
-        reps = tempLine.split('=')[-1]
-    if "$PVM_SPackArrNSlices" in tempLine:
-        print tempLine
-        tempLine = methodFile.readline()
-        if len(recoSizeArr) == 2:
-            recoSizeArr.append(tempLine.split()[0])
-
-methodFile.close()
-
-#Fix the recoFOVArr if it is incorrect
-if len(recoFOVArr) == 2:
-    recoFOVArr.append(0.1)
-
-#Verify
-print recoSizeArr
-
-######################
-#Create the AFNI Data#
-######################
-
-#Actually run the to3d
-cmd = "to3d -omri -prefix recoed -xFOV %fL-R -yFOV %fA-P -zFOV %fS-I \
-       -time:zt %i %i %i seq+z -view orig 3Ds:0:0:%i:%i:%i:2dseq" \
-       % (recoFOVArr[0]/2.0, recoFOVArr[1]/2.0, recoFOVArr[2]/2.0, \
-       int(recoSizeArr[2]), int(reps), 1, int(recoSizeArr[1]), int(recoSizeArr[0]), int(recoSizeArr[2])*int(reps))
-
-failure, output = commands.getstatusoutput(cmd)
-
-#####################################
-#Get the AFNI data into NIFTI format#
-#####################################
-
-cmd = "3dAFNItoNIFTI recoed+orig"
-
-failure, output = commands.getstatusoutput(cmd)
+###########################
+# Bring in the NIFTI file #
+###########################
+niftiName = '18991230_000000Lql75ocUVupuu0WhLMhPASevVs002a1001.nii.gz'
+niftiFile = nibabel.load(niftiName)
 
 ###############################
 #Get the NIFTI data into here!#
 ###############################
 
-niftiData = nifti.NiftiImage('recoed')
+niftiData = niftiFile.get_data()
 
 #########################################
 #Create DICOM images from the nifti data#
@@ -133,61 +69,65 @@ niftiData = nifti.NiftiImage('recoed')
 #Launch an interactive data browser#
 ####################################
 
+#Nencka solution for fixing the whole asnToInt(float(str( thing
+def asnToInt(x):
+    return int(float(str(x)))
+
 #Functions for when the counters are incremented
 def locWidgetChanged():
-    myAxisD1.imshow(niftiData.data[sliceWidget.getvalue(),:,:])
-    myAxisD2.imshow(niftiData.data[:,rowWidget.getvalue(),:])
-    myAxisD3.imshow(niftiData.data[:,:,colWidget.getvalue()])
-    print niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()]
-    voxValue.set('Current Voxel Value is %g' % niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()])
+    myAxisD1.imshow(niftiData[asnToInt(sliceWidget.getvalue()),:,:])
+    myAxisD2.imshow(niftiData[:,asnToInt(rowWidget.getvalue()),:])
+    myAxisD3.imshow(niftiData[:,:,asnToInt(colWidget.getvalue())])
+    print(niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
+    voxValue.set('Current Voxel Value is %g' % niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
     canvasD1.show()
     canvasD2.show()
     canvasD3.show()
 
 #Functions for dealing with mouse clicks on the plots
 def canvasD1OnClick(event):
-    print 'Canvas 1, button %d, x=%d, y=%d, xdata=%d, ydata=%d' % (event.button, event.x, event.y, event.xdata, event.ydata)
-    print niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()]
-    colWidget.setvalue( int(event.xdata) )
-    rowWidget.setentry( int(event.ydata) )
-    voxValue.set('Current Voxel Value is %g' % niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()])
+    print('Canvas 1, button %d, x=%d, y=%d, xdata=%d, ydata=%d' % (event.button, event.x, event.y, event.xdata, event.ydata))
+    print(niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
+    colWidget.setvalue( asnToInt(event.xdata) )
+    rowWidget.setentry( asnToInt(event.ydata) )
+    voxValue.set('Current Voxel Value is %g' % niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
     if event.button == 2:
-        d1SeedEntry.setvalue( sliceWidget.getvalue() )
-        d2SeedEntry.setvalue( rowWidget.getvalue() )
-        d3SeedEntry.setvalue( colWidget.getvalue() )
+        d1SeedEntry.setvalue( asnToInt(sliceWidget.getvalue() ))
+        d2SeedEntry.setvalue( asnToInt(rowWidget.getvalue() ))
+        d3SeedEntry.setvalue( asnToInt(colWidget.getvalue() ))
 def canvasD2OnClick(event):
-    print 'Canvas 2, button %d, x=%d, y=%d, xdata=%d, ydata=%d' % (event.button, event.x, event.y, event.xdata, event.ydata)
-    print niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()]
-    sliceWidget.setvalue( int(event.ydata) )
-    colWidget.setvalue( int(event.xdata) )
-    voxValue.set('Current Voxel Value is %g' % niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()])
+    print('Canvas 2, button %d, x=%d, y=%d, xdata=%d, ydata=%d' % (event.button, event.x, event.y, event.xdata, event.ydata))
+    print(niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
+    sliceWidget.setvalue( asnToInt(event.ydata) )
+    colWidget.setvalue( asnToInt(event.xdata) )
+    voxValue.set('Current Voxel Value is %g' % niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
     if event.button == 2:
-        d1SeedEntry.setvalue( sliceWidget.getvalue() )
-        d2SeedEntry.setvalue( rowWidget.getvalue() )
-        d3SeedEntry.setvalue( colWidget.getvalue() )
+        d1SeedEntry.setvalue( asnToInt(sliceWidget.getvalue()) )
+        d2SeedEntry.setvalue( asnToInt(rowWidget.getvalue()) )
+        d3SeedEntry.setvalue( asnToInt(colWidget.getvalue() ))
 def canvasD3OnClick(event):
-    print 'Canvas 3, button %d, x=%d, y=%d, xdata=%d, ydata=%d' % (event.button, event.x, event.y, event.xdata, event.ydata)
-    print niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()]
-    sliceWidget.setvalue( int(event.ydata) )
-    rowWidget.setvalue( int(event.xdata) )
-    voxValue.set('Current Voxel Value is %g' % niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()])
+    print('Canvas 3, button %d, x=%d, y=%d, xdata=%d, ydata=%d' % (event.button, event.x, event.y, event.xdata, event.ydata))
+    print(niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
+    sliceWidget.setvalue( asnToInt(event.ydata) )
+    rowWidget.setvalue( asnToInt(event.xdata) )
+    voxValue.set('Current Voxel Value is %g' % niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
     if event.button == 2:
-        d1SeedEntry.setvalue( sliceWidget.getvalue() )
-        d2SeedEntry.setvalue( rowWidget.getvalue() )
-        d3SeedEntry.setvalue( colWidget.getvalue() )
+        d1SeedEntry.setvalue( asnToInt(sliceWidget.getvalue() ))
+        d2SeedEntry.setvalue( asnToInt(rowWidget.getvalue() ))
+        d3SeedEntry.setvalue( asnToInt(colWidget.getvalue() ))
 
 #Function for creating the cast
 def createCast():
     do26Neighbors=1
     #Initialize the cast data array to zeroes
     castDataSet = niftiData.copy()
-    castDataSet.data = castDataSet.data * 0
+    castDataSet = castDataSet * 0
     #Find the seed values
-    seedValue = float(niftiData.data[d1SeedEntry.getvalue(), d2SeedEntry.getvalue(), d3SeedEntry.getvalue()])
+    seedValue = float(niftiData[asnToInt(d1SeedEntry.getvalue()), asnToInt(d2SeedEntry.getvalue()), asnToInt(d3SeedEntry.getvalue())])
     threshValue = float(thresholdEntry.getvalue())
-    print 'Seed value: %g, Threshold value: %g' % (seedValue, threshValue)
+    print('Seed value: %g, Threshold value: %g' % (seedValue, threshValue))
     #Start the looping
-    newPoints = [(d1SeedEntry.getvalue(), d2SeedEntry.getvalue(), d3SeedEntry.getvalue()), ]
+    newPoints = [(asnToInt(d1SeedEntry.getvalue()), asnToInt(d2SeedEntry.getvalue()), asnToInt(d3SeedEntry.getvalue())), ]
     castPoints = []
     newPoints2 = []
     myContinue = 1
@@ -195,19 +135,19 @@ def createCast():
     while myContinue == 1:
         iteration = iteration+1
         newPoints2 = []
-        print 'Iteration #%g' %iteration
+        print('Iteration #%g' %iteration)
         for point in newPoints:
             if do26Neighbors == 1:
-                for d1index in range(int(point[0])-1,int(point[0])+2):
+                for d1index in range(asnToInt(point[0])-1,asnToInt(point[0])+2):
                     if d1index >= 0:
                         if d1index <= 1000:
-                            for d2index in range(int(point[1])-1,int(point[1])+2):
-                                for d3index in range(int(point[2])-1,int(point[2])+2):
-                                    testValue = niftiData.data[d1index, d2index, d3index]
-                                    castValue = castDataSet.data[d1index, d2index, d3index]
+                            for d2index in range(asnToInt(point[1])-1,asnToInt(point[1])+2):
+                                for d3index in range(asnToInt(point[2])-1,asnToInt(point[2])+2):
+                                    testValue = niftiData[d1index, d2index, d3index]
+                                    castValue = castDataSet[d1index, d2index, d3index]
                                     if testValue > threshValue:
                                         if castValue == 0:
-                                            castDataSet.data[d1index,d2index,d3index] = 1
+                                            castDataSet[d1index,d2index,d3index] = 1
                                             newPoints2.append( (d1index, d2index, d3index) )
                                         #End of if (castvalue)
                                     #End of if (testValue)
@@ -215,40 +155,40 @@ def createCast():
                             #End of d2 loop
                 #End of d1 loop
             else: #End of 26 neighbors, now 6 neighbors
-                for d1index in range(int(point[0])-1,int(point[0])+2):
+                for d1index in range(asnToInt(point[0])-1,asnToInt(point[0])+2):
                     if d1index > -1: #22:
                         if d1index < 10: #57:
-                            d2index = int(point[1])
-                            d3index = int(point[2])
-                            testValue = niftiData.data[d1index, d2index, d3index]
-                            castValue = castDataSet.data[d1index, d2index, d3index]
+                            d2index = asnToInt(point[1])
+                            d3index = asnToInt(point[2])
+                            testValue = niftiData[d1index, d2index, d3index]
+                            castValue = castDataSet[d1index, d2index, d3index]
                             if testValue > threshValue:
                                 if castValue == 0:
-                                    castDataSet.data[d1index,d2index,d3index] = 1
+                                    castDataSet[d1index,d2index,d3index] = 1
                                     newPoints2.append( (d1index, d2index, d3index) )
                                 #End of if (castvalue)
                             #End of if (testValue)
                 #End of d1 for loop
-                for d2index in range(int(point[1])-1,int(point[1])+2):
-                    d1index = int(point[0])
-                    d3index = int(point[2])
-                    testValue = niftiData.data[d1index, d2index, d3index]
-                    castValue = castDataSet.data[d1index, d2index, d3index]
+                for d2index in range(asnToInt(point[1])-1,asnToInt(point[1])+2):
+                    d1index = asnToInt(point[0])
+                    d3index = asnToInt(point[2])
+                    testValue = niftiData[d1index, d2index, d3index]
+                    castValue = castDataSet[d1index, d2index, d3index]
                     if testValue > threshValue:
                         if castValue == 0:
-                            castDataSet.data[d1index,d2index,d3index] = 1
+                            castDataSet[d1index,d2index,d3index] = 1
                             newPoints2.append( (d1index, d2index, d3index) )
                         #End of if (castvalue)
                     #End of if (testValue)
                 #End of d2 for loop
-                for d3index in range(int(point[2])-1,int(point[2])+2):
-                    d2index = int(point[1])
-                    d1index = int(point[0])
-                    testValue = niftiData.data[d1index, d2index, d3index]
-                    castValue = castDataSet.data[d1index, d2index, d3index]
+                for d3index in range(asnToInt(point[2])-1,asnToInt(point[2])+2):
+                    d2index = asnToInt(point[1])
+                    d1index = asnToInt(point[0])
+                    testValue = niftiData[d1index, d2index, d3index]
+                    castValue = castDataSet[d1index, d2index, d3index]
                     if testValue > threshValue:
                         if castValue == 0:
-                            castDataSet.data[d1index,d2index,d3index] = 1
+                            castDataSet[d1index,d2index,d3index] = 1
                             newPoints2.append( (d1index, d2index, d3index) )
                         #End of if (castvalue)
                     #End of if (testValue)
@@ -257,12 +197,15 @@ def createCast():
         #End of newPoints loop
         castPoints.extend(newPoints[:])
         newPoints = newPoints2[:]
-        print '%g points added to cast' % len(newPoints)
+        print('%g points added to cast' % len(newPoints))
         if len(newPoints) < 1:
             myContinue = 0
     #End of while loop
     #Save the cast data set
-    castDataSet.save(filename='Cast', filetype='NIFTI', update_minmax=True)
+    #numpy.save('myCast',castDataSet)
+    newNifti = nibabel.nifti1.Nifti1Image(castDataSet,niftiFile.affine,niftiFile.header)
+    nibabel.save(newNifti,'GeneratedCast.nii.gz')
+    #castDataSet.save(filename='Cast', filetype='NIFTI', update_minmax=True)
 
 #def checkSliceWidget(inputValue):
 #    print inputValue
@@ -332,9 +275,9 @@ myAxisD1 = myFigureD1.add_subplot(1,1,1,title='Dimension 1')
 myAxisD2 = myFigureD2.add_subplot(1,1,1,title='Dimension 2')
 myAxisD3 = myFigureD3.add_subplot(1,1,1,title='Dimension 3')
 
-myAxisD1.imshow(niftiData.data[niftiData.data.shape[0]/2,:,:])
-myAxisD2.imshow(niftiData.data[:,niftiData.data.shape[1]/2,:])
-myAxisD3.imshow(niftiData.data[:,:,niftiData.data.shape[2]/2])
+myAxisD1.imshow(niftiData[asnToInt(niftiData.shape[0]/2),:,:])
+myAxisD2.imshow(niftiData[:,asnToInt(niftiData.shape[1]/2),:])
+myAxisD3.imshow(niftiData[:,:,asnToInt(niftiData.shape[2]/2)])
 
 #The canvas
 canvasD1 = FigureCanvasTkAgg(myFigureD1, master=d1AxisFrame)
@@ -357,9 +300,9 @@ canvasD3.mpl_connect('button_press_event',canvasD3OnClick)
 sliceWidget = Pmw.Counter(d1CounterFrame,
                           labelpos = 'w',
                           label_text = 'Dimension 1',
-                          entryfield_value = niftiData.data.shape[0]/2,
+                          entryfield_value = niftiData.shape[0]/2,
                           datatype = 'numeric',
-                          entryfield_validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.data.shape[0]-1},
+                          entryfield_validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.shape[0]-1},
                           entryfield_command = locWidgetChanged,
                           entryfield_modifiedcommand = locWidgetChanged)
 sliceWidget.pack(side='top');
@@ -367,9 +310,9 @@ sliceWidget.pack(side='top');
 rowWidget = Pmw.Counter(d2CounterFrame,
                         labelpos = 'w',
                         label_text = 'Dimension 2',
-                        entryfield_value = niftiData.data.shape[1]/2,
+                        entryfield_value = niftiData.shape[1]/2,
                         datatype = 'numeric',
-                        entryfield_validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.data.shape[1]-1},
+                        entryfield_validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.shape[1]-1},
                         entryfield_command = locWidgetChanged,
                         entryfield_modifiedcommand = locWidgetChanged)
 rowWidget.pack(side='top');
@@ -377,9 +320,9 @@ rowWidget.pack(side='top');
 colWidget = Pmw.Counter(d3CounterFrame,
                         labelpos = 'w',
                         label_text = 'Dimension 3',
-                        entryfield_value = niftiData.data.shape[2]/2,
+                        entryfield_value = niftiData.shape[2]/2,
                         datatype = 'numeric',
-                        entryfield_validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.data.shape[2]-1},
+                        entryfield_validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.shape[2]-1},
                         entryfield_command = locWidgetChanged,
                         entryfield_modifiedcommand = locWidgetChanged)
 colWidget.pack(side='top')
@@ -388,27 +331,27 @@ colWidget.pack(side='top')
 d1SeedEntry = Pmw.EntryField(seedPixelLocFrame,
                              labelpos = 'w',
                              label_text = 'Seed Dimension 1',
-                             value = niftiData.data.shape[0]/2,
-                             validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.data.shape[0]-1})
+                             value = niftiData.shape[0]/2,
+                             validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.shape[0]-1})
 d1SeedEntry.pack(side='top')
 
 d2SeedEntry = Pmw.EntryField(seedPixelLocFrame,
                              labelpos = 'w',
                              label_text = 'Seed Dimension 2',
-                             value = niftiData.data.shape[1]/2,
-                             validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.data.shape[1]-1})
+                             value = niftiData.shape[1]/2,
+                             validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.shape[1]-1})
 d2SeedEntry.pack(side='top')
 
 d3SeedEntry = Pmw.EntryField(seedPixelLocFrame,
                              labelpos = 'w',
                              label_text = 'Seed Dimension 3',
-                             value = niftiData.data.shape[2]/2,
-                             validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.data.shape[2]-1})
+                             value = niftiData.shape[2]/2,
+                             validate = {'validator' : 'numeric', 'min' : 0, 'max' : niftiData.shape[2]-1})
 d3SeedEntry.pack(side='top')
 
 #The pixel value
 voxValue = tk.StringVar()
-voxValue.set('Current Voxel Value is %d' % niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()])
+voxValue.set('Current Voxel Value is %d' % niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
 
 voxValueLabel = tk.Label(seedPixelInfoFrame, textvariable=voxValue, width=30)
 voxValueLabel.pack(side='top')
@@ -417,7 +360,7 @@ voxValueLabel.pack(side='top')
 thresholdEntry = Pmw.EntryField(seedPixelInfoFrame,
                                 labelpos = 'w',
                                 label_text = 'Cast intensity cutoff',
-                                value = niftiData.data[sliceWidget.getvalue(), rowWidget.getvalue(), colWidget.getvalue()],
+                                value = niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())],
                                 validate = {'validator' : 'numeric', 'min' : 0, 'max' : 50000})
 thresholdEntry.pack(side='top')
 
