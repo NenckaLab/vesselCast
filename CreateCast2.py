@@ -59,6 +59,7 @@ niftiFile = nibabel.load(niftiName)
 ###############################
 
 niftiData = niftiFile.get_data()
+castDataSet = niftiData * 0.0
 
 #########################################
 #Create DICOM images from the nifti data#
@@ -75,9 +76,13 @@ def asnToInt(x):
 
 #Functions for when the counters are incremented
 def locWidgetChanged():
+    masked = numpy.ma.masked_where(castDataSet==0,castDataSet)
     myAxisD1.imshow(niftiData[asnToInt(sliceWidget.getvalue()),:,:])
+    myAxisD1.imshow(masked[asnToInt(sliceWidget.getvalue()),:,:],'jet',alpha=0.7)
     myAxisD2.imshow(niftiData[:,asnToInt(rowWidget.getvalue()),:])
+    myAxisD2.imshow(masked[:,asnToInt(rowWidget.getvalue()),:],'jet',alpha=0.7)
     myAxisD3.imshow(niftiData[:,:,asnToInt(colWidget.getvalue())])
+    myAxisD3.imshow(masked[:,:,asnToInt(colWidget.getvalue())],'jet',alpha=0.7)
     print(niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
     voxValue.set('Current Voxel Value is %g' % niftiData[asnToInt(sliceWidget.getvalue()), asnToInt(rowWidget.getvalue()), asnToInt(colWidget.getvalue())])
     canvasD1.show()
@@ -120,8 +125,8 @@ def canvasD3OnClick(event):
 def createCast():
     do26Neighbors=1
     #Initialize the cast data array to zeroes
-    castDataSet = niftiData.copy()
-    castDataSet = castDataSet * 0
+    #castDataSet = niftiData.copy()
+    #castDataSet = castDataSet * 0
     #Find the seed values
     seedValue = float(niftiData[asnToInt(d1SeedEntry.getvalue()), asnToInt(d2SeedEntry.getvalue()), asnToInt(d3SeedEntry.getvalue())])
     threshValue = float(thresholdEntry.getvalue())
@@ -132,11 +137,13 @@ def createCast():
     newPoints2 = []
     myContinue = 1
     iteration = 0
+    origThresh = seedValue * 0.75
     while myContinue == 1:
         iteration = iteration+1
         newPoints2 = []
         print('Iteration #%g' %iteration)
         for point in newPoints:
+            thisThresh = 0.975*float(niftiData[point[0],point[1],point[2]])
             if do26Neighbors == 1:
                 for d1index in range(asnToInt(point[0])-1,asnToInt(point[0])+2):
                     if d1index >= 0:
@@ -145,7 +152,7 @@ def createCast():
                                 for d3index in range(asnToInt(point[2])-1,asnToInt(point[2])+2):
                                     testValue = niftiData[d1index, d2index, d3index]
                                     castValue = castDataSet[d1index, d2index, d3index]
-                                    if testValue > threshValue:
+                                    if ((testValue > thisThresh) or (testValue > threshValue)) and (testValue > origThresh): #threshValue:
                                         if castValue == 0:
                                             castDataSet[d1index,d2index,d3index] = 1
                                             newPoints2.append( (d1index, d2index, d3index) )
@@ -198,7 +205,7 @@ def createCast():
         castPoints.extend(newPoints[:])
         newPoints = newPoints2[:]
         print('%g points added to cast' % len(newPoints))
-        if len(newPoints) < 1:
+        if (len(newPoints) < 1) or (iteration>200) or (len(newPoints)>1500):
             myContinue = 0
     #End of while loop
     #Save the cast data set
